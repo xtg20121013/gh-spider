@@ -6,16 +6,19 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
 )
 
 var PROJECTS = []string{
+	"/CyC2018/GFM-Converter",
 	"/frank-lam/fullstack-tutorial",
 	"/CyC2018/Job-Recommend",
 	"/CyC2018/CS-Notes",
 	"/CyC2018/Markdown-Resume",
-	"/aylei/interview"}
+	"/aylei/interview",
+}
 
 var saveCh = make(chan *entity.UserInfo)
 var userCh = make(chan *entity.UserInfo)
@@ -29,6 +32,8 @@ const githubUrl = "https://github.com"
 func main() {
 	for _, path := range PROJECTS{
 		go fetchWatches(path)
+		go fetchStargazers(path)
+		go fetchForks(path)
 	}
 	go queryUser()
 	saveUser()
@@ -80,7 +85,56 @@ func fetchWatches(path string) {
 	}
 }
 
+func fetchStargazers(path string)  {
+	url := fmt.Sprintf("%s%s%s", githubUrl, path, "/stargazers")
+	for true{
+		res, body:= reqGet(url)
+		if res.StatusCode != 200{
+			log.Fatal("fetchStargazers error! url="+url)
+		}
+		doc := body
+		userReg := regexp.MustCompile(`data-octo-dimensions="link_type:self" href="/([a-zA-Z0-9-]*)"`)
+		names := userReg.FindAllStringSubmatch(doc, -1)
+		nameMap := map[string]string{}
+		for _, name := range names {
+			nameMap[name[1]] = name[1]
+		}
+		for k := range nameMap{
+			u := entity.UserInfo{Index: k, From: url}
+			userCh <- &u
+		}
+		//获取下一页链接
+		nextReg := regexp.MustCompile(`Previous(</button>|</a>)<a rel="nofollow" class="btn btn-outline BtnGroup-item" href="(.*?)">Next</a></div>`)
+		nexts := nextReg.FindStringSubmatch(doc)
+		if nexts != nil{
+			url = nexts[2]
+		}else {
+			break
+		}
+	}
+}
 
+func fetchForks(path string) {
+	url := fmt.Sprintf("%s%s%s", githubUrl, path, "/network/members")
+	res, body:= reqGet(url)
+	if res.StatusCode != 200{
+		log.Fatal("fetchForks error! url="+url)
+	}
+	doc := body
+	userReg := regexp.MustCompile(`data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="/([a-zA-Z0-9-]*)">`)
+	names := userReg.FindAllStringSubmatch(doc, -1)
+	if len(names) == 0{
+		return
+	}
+	nameMap := map[string]string{}
+	for _, name := range names {
+		nameMap[name[1]] = name[1]
+	}
+	for k := range nameMap{
+		u := entity.UserInfo{Index: k, From: url}
+		userCh <- &u
+	}
+}
 
 func queryUser() {
 	for v := range userCh{
