@@ -20,8 +20,8 @@ var PROJECTS = []string{
 	"/aylei/interview",
 }
 
-var saveCh = make(chan *entity.UserInfo)
-var userCh = make(chan *entity.UserInfo)
+var saveCh = make(chan *entity.UserInfo, 3)
+var userCh = make(chan *entity.UserInfo, 3)
 var db = initDb()
 
 //http client
@@ -148,7 +148,9 @@ func queryUser() {
 		// 昵称获取
 		nameReg := regexp.MustCompile(`itemprop="name">(.*)</span>`)
 		names := nameReg.FindStringSubmatch(doc)
-		u.Name = names[1]
+		if names != nil{
+			u.Name = names[1]
+		}
 		// 组织获取
 		companyReg := regexp.MustCompile(`aria-label="Organization: (.*?)"`)
 		companys := companyReg.FindStringSubmatch(doc)
@@ -179,15 +181,7 @@ func queryUser() {
 
 func saveUser()  {
 	for u := range saveCh{
-		oldU := entity.UserInfo{}
-		db.Where(&entity.UserInfo{Index: u.Index}).First(&oldU)
-		if oldU.ID == 0{
-			db.Save(u)
-		}else if u.Mail != "" {
-			oldU.Mail = u.Mail
-			oldU.From = u.From
-			db.Save(&oldU)
-		}
+		db.Save(u)
 		fmt.Println(u)
 	}
 }
