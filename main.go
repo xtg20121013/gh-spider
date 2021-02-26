@@ -12,12 +12,17 @@ import (
 )
 
 var PROJECTS = []string{
-	"/CyC2018/GFM-Converter",
+	//"/CyC2018/GFM-Converter",
 	"/frank-lam/fullstack-tutorial",
 	"/CyC2018/Job-Recommend",
 	"/CyC2018/CS-Notes",
 	"/CyC2018/Markdown-Resume",
 	"/aylei/interview",
+	"/ShameCom/ShameCom",
+	"/shfshanyue/Daily-Question",
+	"/wolverinn/Waking-Up",
+	"/MisterBooo/LeetCodeAnimation",
+	"/azl397985856/leetcode",
 }
 
 var saveCh = make(chan *entity.UserInfo, 3)
